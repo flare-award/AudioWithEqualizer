@@ -4,14 +4,16 @@ export type Settings = { enabled: boolean; preamp: number; bands: number[]; mono
 export const DEFAULT_SETTINGS: Settings = { enabled: true, preamp: 0, bands: Array(10).fill(0), mono: false, balance: 0 };
 
 export function clampDb(value: number): number { return Math.max(-20, Math.min(20, Number(value) || 0)); }
+export function clampPlaybackVolume(value: number): number { return Math.max(0, Math.min(1, Number(value) || 0)); }
 export function processingParameters(settings: Settings) {
   return { enabled: settings.enabled, preampGain: Math.pow(10, clampDb(settings.preamp) / 20), filters: FREQUENCIES.map((frequency, i) => ({ frequency, type: 'peaking' as BiquadFilterType, gain: clampDb(settings.bands[i] ?? 0), Q: 1.4 })), balance: Math.max(-1, Math.min(1, settings.balance)), mono: settings.mono };
 }
 
 /** Shared processing topology for real-time playback and offline export. */
-export function connectProcessing(context: BaseAudioContext, input: AudioNode, output: AudioNode, settings: Settings, realtime = false) {
-  const dry = context.createGain(), wet = context.createGain();
-  input.connect(dry); dry.connect(output);
+export function connectProcessing(context: BaseAudioContext, input: AudioNode, output: AudioNode, settings: Settings, realtime = false, playbackVolume = 1) {
+  const dry = context.createGain(), wet = context.createGain(), master = context.createGain();
+  master.gain.value = clampPlaybackVolume(playbackVolume);
+  input.connect(dry); dry.connect(master); master.connect(output);
   const params = processingParameters(settings);
   let node: AudioNode = input;
   const preamp = context.createGain(); preamp.gain.value = params.preampGain; node.connect(preamp); node = preamp;
@@ -24,7 +26,7 @@ export function connectProcessing(context: BaseAudioContext, input: AudioNode, o
   splitter.connect(stereo, 0, 0); splitter.connect(stereo, 1, 1);
   splitter.connect(left, 0); splitter.connect(right, 1);
   left.connect(mono, 0, 0); left.connect(mono, 0, 1); right.connect(mono, 0, 0); right.connect(mono, 0, 1);
-  stereo.connect(stereoLevel); mono.connect(monoLevel); stereoLevel.connect(wet); monoLevel.connect(wet); wet.connect(output);
+  stereo.connect(stereoLevel); mono.connect(monoLevel); stereoLevel.connect(wet); monoLevel.connect(wet); wet.connect(master);
   stereoLevel.gain.value = settings.mono ? 0 : 1; monoLevel.gain.value = settings.mono ? 1 : 0;
   const setTarget = (param: AudioParam, value: number) => { if (realtime) param.setTargetAtTime(value, context.currentTime, .015); else param.value = value; };
   const update = (next: Settings) => {
@@ -33,8 +35,9 @@ export function connectProcessing(context: BaseAudioContext, input: AudioNode, o
     setTarget(preamp.gain, p.preampGain); p.filters.forEach((f, i) => setTarget(filters[i].gain, f.gain));
     setTarget(panner.pan, p.balance); setTarget(stereoLevel.gain, next.mono ? 0 : 1); setTarget(monoLevel.gain, next.mono ? 1 : 0);
   };
+  const setVolume = (value: number) => setTarget(master.gain, clampPlaybackVolume(value));
   update(settings);
-  return { update, dry, wet, filters, preamp, panner };
+  return { update, setVolume, dry, wet, filters, preamp, panner, master };
 }
 
 export function formatTime(seconds: number) {

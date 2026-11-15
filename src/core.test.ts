@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_SETTINGS, FREQUENCIES, processingParameters, type Settings } from './audio';
+import { clampPlaybackVolume, DEFAULT_SETTINGS, FREQUENCIES, processingParameters, type Settings } from './audio';
 import { deleteProfile, loadProfiles, persistProfiles, PROFILE_KEY, resetSettings, saveProfile, type UserProfile } from './profiles';
 import { encodeWav } from './wav';
 
@@ -41,6 +41,11 @@ describe('processing parameter mapping', () => {
   it('clamps dB and balance to supported ranges', () => {
     const params = processingParameters({ ...DEFAULT_SETTINGS, preamp: 40, bands: [-50, ...Array(9).fill(0)], balance: -4 });
     expect(params.preampGain).toBe(10); expect(params.filters[0].gain).toBe(-20); expect(params.balance).toBe(-1);
+  });
+  it('keeps playback monitor gain in the supported linear range', () => {
+    expect(clampPlaybackVolume(0.72)).toBe(0.72);
+    expect(clampPlaybackVolume(-2)).toBe(0);
+    expect(clampPlaybackVolume(2)).toBe(1);
   });
 });
 

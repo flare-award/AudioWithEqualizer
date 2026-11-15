@@ -16,7 +16,7 @@ function App() {
   const [duration, setDuration] = React.useState(0);
   const [current, setCurrent] = React.useState(0);
   const [playing, setPlaying] = React.useState(false);
-  const [volume, setVolume] = React.useState(0.85);
+  const [volume, setVolume] = React.useState(1);
   const [dragging, setDragging] = React.useState(false);
   const [error, setError] = React.useState('');
   const [exporting, setExporting] = React.useState(false);
@@ -37,7 +37,7 @@ function App() {
   React.useEffect(() => { try { persistProfiles(profiles); } catch { setError('Не удалось сохранить профиль: в хранилище браузера закончилось место.'); } }, [profiles]);
   React.useEffect(() => () => { if (url) URL.revokeObjectURL(url); }, [url]);
   React.useEffect(() => () => { if (contextRef.current) void contextRef.current.close(); }, []);
-  React.useEffect(() => { if (audioRef.current) audioRef.current.volume = volume; }, [volume, url]);
+  React.useEffect(() => { if (audioRef.current) audioRef.current.volume = 1; graphRef.current?.setVolume(volume); }, [volume, url]);
   React.useEffect(() => {
     const audio = audioRef.current; if (!audio) return;
     const time = () => setCurrent(audio.currentTime), meta = () => setDuration(Number.isFinite(audio.duration) ? audio.duration : 0), ended = () => setPlaying(false);
@@ -74,7 +74,7 @@ function App() {
     const audio = audioRef.current; if (!audio || !file) return;
     if (!contextRef.current) {
       const ctx = new AudioContext();
-      try { const source = ctx.createMediaElementSource(audio); const graph = connectProcessing(ctx, source, ctx.destination, settingsRef.current, true); contextRef.current = ctx; graphRef.current = graph; }
+      try { audio.volume = 1; const source = ctx.createMediaElementSource(audio); const graph = connectProcessing(ctx, source, ctx.destination, settingsRef.current, true, volume); contextRef.current = ctx; graphRef.current = graph; }
       catch { await ctx.close(); setError('Не удалось подключить аудиообработку. Попробуйте перезагрузить страницу.'); return; }
     }
     if (contextRef.current.state === 'suspended') await contextRef.current.resume();
@@ -118,7 +118,7 @@ function App() {
         {file ? <><div className="file-icon"><FileAudio2 size={21}/></div><div className="file-meta"><span className="file-label">СЕЙЧАС В СТУДИИ</span><strong title={file.name}>{file.name}</strong><span>{duration ? formatTime(duration) : 'Определяем длительность…'} <i/> {(file.size / 1024 / 1024).toFixed(1)} МБ</span></div><button className="change-file" onClick={() => inputRef.current?.click()} aria-label="Выбрать другой файл"><Upload size={16}/><span>Заменить файл</span></button></> : <><div className="upload-symbol"><Upload size={23}/></div><div className="upload-copy"><strong>Перетащи музыку сюда</strong><span>или выбери файл с устройства · MP3, WAV и другие</span></div><button className="browse-btn" onClick={() => inputRef.current?.click()}>Выбрать файл <Upload size={15}/></button></>}
       </section>
       {error && <div className="notice error-notice" role="alert"><span>{error}</span><button aria-label="Закрыть сообщение" onClick={() => setError('')}><X size={16}/></button></div>}
-      {file && <section className="player-card"><div className="player-main"><button className="play-button" onClick={() => void togglePlay()} aria-label={playing ? 'Пауза' : 'Воспроизвести'}>{playing ? <Pause fill="currentColor" size={20}/> : <Play fill="currentColor" size={20}/>}</button><div className="timeline"><div className="time-labels"><span>{formatTime(current)}</span><span>{formatTime(duration)}</span></div><input aria-label="Позиция воспроизведения" type="range" min="0" max={duration || 0} step="0.01" value={Math.min(current, duration || 0)} style={{'--progress': `${duration ? current / duration * 100 : 0}%`} as React.CSSProperties} onChange={(e) => { if (audioRef.current) audioRef.current.currentTime = Number(e.target.value); }}/></div><div className="volume-control">{volume === 0 ? <VolumeX size={17}/> : <Volume2 size={17}/>}<input aria-label="Громкость плеера" type="range" min="0" max="1" step="0.01" value={volume} onChange={(e) => { setVolume(Number(e.target.value)); if (audioRef.current) audioRef.current.volume = Number(e.target.value); }}/></div></div><audio ref={audioRef} src={url || undefined} preload="metadata" onError={() => file && setError('Не удалось декодировать файл. Убедитесь, что браузер поддерживает его аудиокодек.')}/></section>}
+      {file && <section className="player-card"><div className="player-main"><button className="play-button" onClick={() => void togglePlay()} aria-label={playing ? 'Пауза' : 'Воспроизвести'}>{playing ? <Pause fill="currentColor" size={20}/> : <Play fill="currentColor" size={20}/>}</button><div className="timeline"><div className="time-labels"><span>{formatTime(current)}</span><span>{formatTime(duration)}</span></div><input aria-label="Позиция воспроизведения" type="range" min="0" max={duration || 0} step="0.01" value={Math.min(current, duration || 0)} style={{'--progress': `${duration ? current / duration * 100 : 0}%`} as React.CSSProperties} onChange={(e) => { if (audioRef.current) audioRef.current.currentTime = Number(e.target.value); }}/></div><div className="volume-control">{volume === 0 ? <VolumeX size={17}/> : <Volume2 size={17}/>}<input aria-label="Громкость плеера" type="range" min="0" max="1" step="0.01" value={volume} onChange={(e) => setVolume(Number(e.target.value))}/></div></div><audio ref={audioRef} src={url || undefined} preload="metadata" onError={() => file && setError('Не удалось декодировать файл. Убедитесь, что браузер поддерживает его аудиокодек.')}/></section>}
 
       <section className="eq-card">
         <div className="section-heading"><div className="section-title"><div className="heading-icon"><SlidersHorizontal size={17}/></div><div><h2>Эквалайзер</h2><span>10 полос · графическая настройка частот</span></div></div><label className="switch-row"><span>{settings.enabled ? 'Включён' : 'Обход'}</span><input type="checkbox" checked={settings.enabled} onChange={(e) => setField({ enabled: e.target.checked })} aria-label="Включить эквалайзер и обработку"/><span className="switch" aria-hidden="true"/></label></div>
