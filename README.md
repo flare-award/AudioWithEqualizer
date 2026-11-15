@@ -4,7 +4,7 @@
 
 ## Публикация на GitHub Pages
 
-Сайт публикуется автоматически через GitHub Actions на адресе [https://flare-award.github.io/AudioWithEqualizer/](https://flare-award.github.io/AudioWithEqualizer/). Workflow собирает и тестирует текущую рабочую ветку `arena/566f0f92-audiowithequalizer`, а также `main`; для первого запуска в настройках репозитория Pages должен использовать источник **GitHub Actions**. Сборка настроена на URL-путь проекта `/AudioWithEqualizer/`.
+GitHub Actions workflow собирает и тестирует ветку `arena/566f0f92-audiowithequalizer` и `main`, затем публикует сборку на [https://flare-award.github.io/AudioWithEqualizer/](https://flare-award.github.io/AudioWithEqualizer/). Перед первой публикацией в настройках репозитория **Settings → Pages → Build and deployment → Source** нужно выбрать **GitHub Actions**. До этого шага GitHub Pages не активирован для репозитория. Сборка настроена на URL-путь проекта `/AudioWithEqualizer/`.
 
 ## Локальная разработка
 
